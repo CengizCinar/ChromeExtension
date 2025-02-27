@@ -1,0 +1,3 @@
+[submodule "backend/keepa_wrapper"]
+	path = backend/keepa_wrapper
+	url = https://github.com/akaszynski/keepa.git

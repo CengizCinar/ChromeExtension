@@ -1,0 +1,38 @@
+# Compiled source #
+###################
+*.pyc
+*.c
+*.cpp
+*.so
+*.o
+*.cache/
+
+# OS generated files #
+######################
+.fuse_hidden*
+*~
+
+# Pip generated folders #
+#########################
+keepa.egg-info/
+build/
+dist/
+keepa/__pycache__/
+
+# testing
+Testing/
+test.sh
+.pytest_cache/
+tests/.coverage
+tests/htmlcov/
+*,cover
+.coverage
+.hypothesis
+.venv
+
+# key storage
+tests/key
+tests/weak_key
+
+# pycharm IDE
+.idea
