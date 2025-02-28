@@ -1,25 +1,54 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import keepa  # Keepa Python wrapper (git üzerinden yüklenebilir)
+import keepa
 import os
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# API anahtarınızı ortam değişkeninden okuyun veya buraya sabit değer atayın.
-KEEPA_API_KEY = os.getenv("KEEPA_API_KEY", "Y2nc6nr6ui11o4q099eb0cp8eovroo96jo9daer4v3jkcf94ejuqjqpodbkbtkqes")
-api = keepa.Keepa(KEEPA_API_KEY)
+# CORS ayarları
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# API anahtarı
+KEEPA_API_KEY = os.getenv("KEEPA_API_KEY", "2nc6nr6ui11o4q099eb0cp8eovroo96jo9daer4v3jkcf94ejuqjqpodbkbtkqes")
+
+try:
+    api = keepa.Keepa(KEEPA_API_KEY)
+except Exception as e:
+    print(f"Keepa API bağlantı hatası: {str(e)}")
+    raise
 
 class ProductRequest(BaseModel):
     asin: str
 
+@app.get("/")
+async def root():
+    return {"status": "API çalışıyor", "version": "1.0"}
+
 @app.post("/product")
 async def get_product(product_req: ProductRequest):
     try:
-        # Keepa wrapper aracılığıyla ürün verilerini çekiyoruz
-        product_data = api.product(product_req.asin)
-        if not product_data or not product_data.get("products"):
+        print(f"ASIN için istek alındı: {product_req.asin}")
+        
+        # history=True yapıyoruz buybox verileri için
+        products = api.query(product_req.asin, history=True, buybox=True)
+        
+        if not products:
             raise HTTPException(status_code=404, detail="Ürün bulunamadı")
-        product = product_data["products"][0]
+            
+        product = products[0]
+        print(f"Ürün bulundu: {product.get('title', 'Başlık yok')}")
+        
+        # Debug: Tüm product verilerini kontrol edelim
+        print("Product data keys:", product.keys())
+        if "data" in product:
+            print("Data keys:", product["data"].keys())
 
         # Dimensions (mm -> cm dönüşümü)
         dimensions = {
@@ -31,7 +60,7 @@ async def get_product(product_req: ProductRequest):
 
         # Box capacity hesaplaması
         BOX_DIMENSIONS = {"height": 55, "length": 55, "width": 45}
-        BOX_VOLUME = BOX_DIMENSIONS["height"] * BOX_DIMENSIONS["length"] * BOX_DIMENSIONS["width"]  # 136125 cm³
+        BOX_VOLUME = BOX_DIMENSIONS["height"] * BOX_DIMENSIONS["length"] * BOX_DIMENSIONS["width"]
         BOX_MAX_WEIGHT = 23000
         BOX_COST = 165
 
@@ -47,18 +76,35 @@ async def get_product(product_req: ProductRequest):
         
         box_capacity = calculate_box_capacity(dimensions, dimensions["weight"])
 
-        # Buybox fiyatı ve kargo: CSV verisinden ayrıştırma
+        # Buybox fiyatı ve kargo - yeni format
         current_buybox_price = None
         current_buybox_shipping = 0
-        if "csv" in product and len(product["csv"]) > 18 and isinstance(product["csv"][18], list):
-            buybox_data = product["csv"][18]
-            for i in range(len(buybox_data) - 3, -1, -3):
-                price = buybox_data[i+1]
-                shipping = buybox_data[i+2]
-                if price != -1:
-                    current_buybox_price = price / 100
-                    current_buybox_shipping = shipping / 100 if shipping != -1 else 0
-                    break
+        
+        # Debug: Buybox verilerini kontrol edelim
+        if "data" in product:
+            print("Mevcut data içeriği:", product["data"])
+            
+            # Önce stats'tan deneyelim
+            stats = product.get('stats', {})
+            if stats:
+                bb_price = stats.get('buyBoxPrice', -1)
+                if bb_price != -1:
+                    current_buybox_price = bb_price / 100
+                    print(f"Stats'tan alınan buybox fiyatı: {current_buybox_price}")
+
+            # Eğer stats'tan alamazsak csv'den deneyelim
+            if current_buybox_price is None and "csv" in product:
+                csv_data = product["csv"]
+                if csv_data and len(csv_data) > 18:
+                    buybox_data = csv_data[18]
+                    if isinstance(buybox_data, list) and len(buybox_data) >= 3:
+                        price = buybox_data[-2]  # Son fiyat
+                        shipping = buybox_data[-1]  # Son kargo
+                        if price != -1:
+                            current_buybox_price = price / 100
+                            current_buybox_shipping = shipping / 100 if shipping != -1 else 0
+                            print(f"CSV'den alınan buybox fiyatı: {current_buybox_price}")
+                            print(f"CSV'den alınan kargo: {current_buybox_shipping}")
 
         buybox_price = f"{current_buybox_price:.2f} €" if current_buybox_price is not None else "No buybox price available"
         buybox_shipping = f"{current_buybox_shipping:.2f} €"
@@ -74,11 +120,10 @@ async def get_product(product_req: ProductRequest):
         # EAN listesi
         all_eans = product.get("eanList", [])
 
-        # Manufacturer ve origin (origin için deepseek entegrasyonu eklenmedi; isterseniz burada ekleyebilirsiniz)
+        # Manufacturer
         manufacturer = product.get("manufacturer", None)
-        origin = None
 
-        # Shipping cost hesaplama (örnek: ağırlığa göre)
+        # Shipping cost hesaplama
         def calculate_shipping_cost(weight):
             if not weight:
                 return "N/A"
@@ -103,7 +148,6 @@ async def get_product(product_req: ProductRequest):
             "dimensions": dimensions,
             "returnRate": return_rate,
             "shippingCost": shipping_cost,
-            "origin": origin,
             "boxCapacity": box_capacity,
             "pickAndPackFee": pick_and_pack_fee,
             "referralFeePercentage": referral_fee_percentage,
@@ -112,8 +156,12 @@ async def get_product(product_req: ProductRequest):
             "totalBuyboxPrice": total_buybox_price,
             "rawBuyboxPrice": current_buybox_price
         }
+        
+        print(f"Yanıt hazırlandı: {response_data}")
         return response_data
+        
     except Exception as e:
+        print(f"Hata oluştu: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
