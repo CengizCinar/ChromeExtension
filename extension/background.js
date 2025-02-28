@@ -35,36 +35,45 @@ const utilityFunctions = {
     };
   }
   
-  // Yeni fetchProductData fonksiyonu - Cache entegrasyonlu
+  // fetchProductData fonksiyonu - 12 saatlik cache kullanıyor
   async function fetchProductData(asin) {
-    return await getCachedOrFetch(`product_${asin}`, async () => {
-        try {
-            console.log("Cache miss - Sending request for ASIN:", asin);
-            const response = await fetch("http://localhost:8000/product", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ asin })
-            });
+    console.group(`Product Data Request: ${asin}`);
+    console.log(`Processing request for ASIN: ${asin}`);
+    
+    try {
+      // getCachedOrFetch fonksiyonu ile veriyi al (12 saatlik önbellek)
+      const data = await getCachedOrFetch(`product_${asin}`, async () => {
+        console.log(`Cache miss for ASIN: ${asin} - Fetching from API...`);
+        const response = await fetch("http://localhost:8000/product", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ asin })
+        });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error("API Error:", errorData);
-                throw new Error(errorData.detail || "API request failed");
-            }
-
-            const data = await response.json();
-            console.log("API Response:", data);
-            return data;
-        } catch (error) {
-            console.error("Error fetching product data:", error);
-            throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("API Error:", errorData);
+          throw new Error(errorData.detail || "API request failed");
         }
-    });
+
+        const responseData = await response.json();
+        console.log("Fresh API Response:", responseData);
+        return responseData;
+      });
+      
+      console.log(`Request for ASIN: ${asin} completed successfully`);
+      console.groupEnd();
+      return data;
+    } catch (error) {
+      console.error(`Error processing ASIN: ${asin}`, error);
+      console.groupEnd();
+      throw error;
+    }
   }
   
-  // Message listener güncelleniyor - hata yönetimi iyileştirildi
+  // Message listener - hata yönetimi iyileştirildi
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.group("Message Received");
     console.log("Message:", message);
@@ -99,11 +108,24 @@ const utilityFunctions = {
     }
   });
   
+  // Storage değişikliklerini izle - Debug için
   chrome.storage.onChanged.addListener((changes, namespace) => {
     console.group("Storage Changes");
     for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
-      console.log(`Storage key "${key}" in "${namespace}" changed:`, `Old:`, oldValue, `New:`, newValue);
+      // Sadece önbellek ile ilgili değişiklikleri göster
+      if (key.startsWith('product_')) {
+        const asin = key.replace('product_', '');
+        console.log(`Cache for ASIN ${asin} updated:`);
+        
+        if (newValue) {
+          const expiryDate = new Date(newValue.expiresAt);
+          console.log(`- New cache expires at: ${expiryDate.toLocaleString()}`);
+        } else {
+          console.log(`- Cache entry removed`);
+        }
+      } else {
+        console.log(`Storage key "${key}" in "${namespace}" changed.`);
+      }
     }
     console.groupEnd();
   });
-  
