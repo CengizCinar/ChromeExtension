@@ -1,3 +1,5 @@
+import { getCachedOrFetch } from './cacheService.js';
+
 // utility functions (örn. doubleEncode, reverseString vs.) korunabilir; tasarım değişmedi.
 const utilityFunctions = {
     doubleEncode: (string) => btoa(btoa(string)),
@@ -33,24 +35,36 @@ const utilityFunctions = {
     };
   }
   
-  // Yeni fetchProductData fonksiyonu backend API’ye istek yapar
+  // Yeni fetchProductData fonksiyonu - Cache entegrasyonlu
   async function fetchProductData(asin) {
-    try {
-      const response = await fetch("http://localhost:8000/product", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ asin })
-      });
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Error fetching product data:", error);
-      return { success: false, error: "Error fetching product data" };
-    }
+    return await getCachedOrFetch(`product_${asin}`, async () => {
+        try {
+            console.log("Cache miss - Sending request for ASIN:", asin);
+            const response = await fetch("http://localhost:8000/product", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ asin })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("API Error:", errorData);
+                throw new Error(errorData.detail || "API request failed");
+            }
+
+            const data = await response.json();
+            console.log("API Response:", data);
+            return data;
+        } catch (error) {
+            console.error("Error fetching product data:", error);
+            throw error;
+        }
+    });
   }
   
+  // Message listener güncelleniyor - hata yönetimi iyileştirildi
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.group("Message Received");
     console.log("Message:", message);
@@ -60,23 +74,28 @@ const utilityFunctions = {
     if (message.action === "fetchPrices") {
       console.group("Fetch Prices Request");
       console.log("ASIN:", message.asin);
+      
       const processRequest = async () => {
         try {
           const data = await fetchProductData(message.asin);
-          if (!data || data === "Not found") {
-            console.warn("Product not found");
-            sendResponse({ success: false, error: "Product details not found" });
+          if (!data || data.success === false) {
+            console.warn("Product not found or error in response");
+            sendResponse({ success: false, error: data.error || "Product details not found" });
           } else {
             console.log("Sending successful response");
             sendResponse(data);
           }
         } catch (error) {
           console.error("Error processing request:", error);
-          sendResponse({ success: false, error: "An error occurred" });
+          sendResponse({ 
+            success: false, 
+            error: error.message || "An error occurred while fetching product data" 
+          });
         }
       };
+
       processRequest();
-      return true;
+      return true; // Async response için gerekli
     }
   });
   

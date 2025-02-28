@@ -262,6 +262,97 @@ function displayPrices(container, data) {
     
     calculateProfit();
   }
+
+  // Yeni tablolar için stil
+  const tableStyle = `
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+    background: white;
+    font-size: 14px;
+  `;
+
+  const cellStyle = `
+    padding: 8px;
+    border: 1px solid #e0e4e8;
+    text-align: left;
+  `;
+
+  const headerStyle = `
+    background: #f4f4f4;
+    font-weight: 600;
+    color: #34495e;
+  `;
+
+  // Seller Info Table
+  let sellerTableHTML = `
+    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #e0e4e8;">
+      <div style="font-weight: 700; font-size: 18px; color: #2c3e50; margin-bottom: 12px; text-align: center;">
+        SELLER INFORMATION
+      </div>
+      <table style="${tableStyle}">
+        <tr>
+          <th style="${cellStyle} ${headerStyle}">FBA/FBM</th>
+          <th style="${cellStyle} ${headerStyle}">Seller Name</th>
+          <th style="${cellStyle} ${headerStyle}">Stock</th>
+        </tr>
+  `;
+
+  if (data.sellerInfo && data.sellerInfo.length > 0) {
+    data.sellerInfo.forEach(seller => {
+      sellerTableHTML += `
+        <tr>
+          <td style="${cellStyle}">${seller.fulfillmentType}</td>
+          <td style="${cellStyle}">${seller.sellerName}</td>
+          <td style="${cellStyle}">${seller.stock === 'Unknown' ? 'N/A' : seller.stock}</td>
+        </tr>
+      `;
+    });
+  } else {
+    sellerTableHTML += `
+      <tr>
+        <td colspan="3" style="${cellStyle} text-align: center;">No seller information available</td>
+      </tr>
+    `;
+  }
+  sellerTableHTML += '</table>';
+
+  // Buybox Stats Table
+  let buyboxTableHTML = `
+    <div style="margin-top: 20px;">
+      <table style="${tableStyle}">
+        <tr>
+          <th style="${cellStyle} ${headerStyle}">90-Day Buybox Rate</th>
+          <th style="${cellStyle} ${headerStyle}">Seller Name</th>
+          <th style="${cellStyle} ${headerStyle}">Seller ID</th>
+        </tr>
+  `;
+
+  if (data.buyboxStats && data.buyboxStats.length > 0) {
+    data.buyboxStats.forEach(stat => {
+      buyboxTableHTML += `
+        <tr>
+          <td style="${cellStyle}">${stat.wonRate.toFixed(2)}%</td>
+          <td style="${cellStyle}">${stat.sellerName}</td>
+          <td style="${cellStyle}">${stat.sellerId}</td>
+        </tr>
+      `;
+    });
+  } else {
+    buyboxTableHTML += `
+      <tr>
+        <td colspan="3" style="${cellStyle} text-align: center;">No buybox statistics available</td>
+      </tr>
+    `;
+  }
+  buyboxTableHTML += '</table></div>';
+
+  // Container'a scroll özelliği ekle
+  container.style.maxHeight = '600px';  // veya istediğiniz yükseklik
+  container.style.overflowY = 'auto';
+  
+  // Yeni tabloları mevcut içeriğin sonuna ekle
+  container.innerHTML = container.innerHTML + sellerTableHTML + buyboxTableHTML;
 }
 
 async function init() {

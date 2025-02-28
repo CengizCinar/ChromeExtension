@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+
+# Your rule content
+
+Always use functions in keepa project for keepa api requests.
+[main.py](mdc:backend/main.py) is responsible for keepa requests. 
