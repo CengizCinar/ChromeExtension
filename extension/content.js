@@ -285,74 +285,83 @@ function displayPrices(container, data) {
   `;
 
   // Seller Info Table
-  let sellerTableHTML = `
-    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #e0e4e8;">
+  const sellerInfoDiv = document.createElement('div');
+  sellerInfoDiv.innerHTML = `
+    <div style="
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 0 10px;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #e0e4e8;
+    ">
       <div style="font-weight: 700; font-size: 18px; color: #2c3e50; margin-bottom: 12px; text-align: center;">
         SELLER INFORMATION
       </div>
-      <table style="${tableStyle}">
-        <tr>
-          <th style="${cellStyle} ${headerStyle}">FBA/FBM</th>
-          <th style="${cellStyle} ${headerStyle}">Seller Name</th>
-          <th style="${cellStyle} ${headerStyle}">Stock</th>
-        </tr>
+      <div style="overflow-x: auto;">
+        <table style="${tableStyle}">
+          <tr>
+            <th style="${cellStyle} ${headerStyle}">FBA/FBM</th>
+            <th style="${cellStyle} ${headerStyle}">Seller ID</th>
+            <th style="${cellStyle} ${headerStyle}">Total Price</th>
+            <th style="${cellStyle} ${headerStyle}">Stock</th>
+          </tr>
+          ${data.sellerInfo && data.sellerInfo.length > 0 ? 
+            data.sellerInfo.map(seller => `
+              <tr>
+                <td style="${cellStyle}; background-color: ${seller.colorStyle.backgroundColor}; color: ${seller.colorStyle.color}; font-weight: bold;">${seller.fulfillmentType}</td>
+                <td style="${cellStyle}"><a href="${seller.amazonUrl}" target="_blank" style="color: #1a6bb0; text-decoration: underline;">${seller.sellerId}</a></td>
+                <td style="${cellStyle}">${seller.totalPrice}</td>
+                <td style="${cellStyle}">${seller.stock === 'N/A' ? 'N/A' : seller.stock.toLocaleString()}</td>
+              </tr>
+            `).join('') : 
+            `<tr><td colspan="4" style="${cellStyle} text-align: center;">No seller information available</td></tr>`
+          }
+        </table>
+      </div>
+    </div>
   `;
-
-  if (data.sellerInfo && data.sellerInfo.length > 0) {
-    data.sellerInfo.forEach(seller => {
-      sellerTableHTML += `
-        <tr>
-          <td style="${cellStyle}">${seller.fulfillmentType}</td>
-          <td style="${cellStyle}">${seller.sellerName}</td>
-          <td style="${cellStyle}">${seller.stock === 'Unknown' ? 'N/A' : seller.stock}</td>
-        </tr>
-      `;
-    });
-  } else {
-    sellerTableHTML += `
-      <tr>
-        <td colspan="3" style="${cellStyle} text-align: center;">No seller information available</td>
-      </tr>
-    `;
-  }
-  sellerTableHTML += '</table>';
 
   // Buybox Stats Table
-  let buyboxTableHTML = `
-    <div style="margin-top: 20px;">
-      <table style="${tableStyle}">
-        <tr>
-          <th style="${cellStyle} ${headerStyle}">90-Day Buybox Rate</th>
-          <th style="${cellStyle} ${headerStyle}">Seller Name</th>
-          <th style="${cellStyle} ${headerStyle}">Seller ID</th>
-        </tr>
+  const buyboxStatsDiv = document.createElement('div');
+  buyboxStatsDiv.innerHTML = `
+    <div style="
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 0 10px;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #e0e4e8;
+    ">
+      <div style="font-weight: 700; font-size: 18px; color: #2c3e50; margin-bottom: 12px; text-align: center;">
+        BUYBOX STATISTICS
+      </div>
+      <div style="overflow-x: auto;">
+        <table style="${tableStyle}">
+          <tr>
+            <th style="${cellStyle} ${headerStyle}">90Day Won%</th>
+            <th style="${cellStyle} ${headerStyle}">Seller ID</th>
+            <th style="${cellStyle} ${headerStyle}">FBA/FBM</th>
+          </tr>
+          ${data.buyboxStats && data.buyboxStats.length > 0 ? 
+            data.buyboxStats.map(stat => `
+              <tr>
+                <td style="${cellStyle}">${stat.wonRate}</td>
+                <td style="${cellStyle}"><a href="${stat.amazonUrl}" target="_blank" style="color: #1a6bb0; text-decoration: underline;">${stat.sellerId}</a></td>
+                <td style="${cellStyle}; background-color: ${stat.colorStyle.backgroundColor}; color: ${stat.colorStyle.color}; font-weight: bold;">${stat.fulfillmentType}</td>
+              </tr>
+            `).join('') : 
+            `<tr><td colspan="3" style="${cellStyle} text-align: center;">No buybox statistics available</td></tr>`
+          }
+        </table>
+      </div>
+    </div>
   `;
-
-  if (data.buyboxStats && data.buyboxStats.length > 0) {
-    data.buyboxStats.forEach(stat => {
-      buyboxTableHTML += `
-        <tr>
-          <td style="${cellStyle}">${stat.wonRate.toFixed(2)}%</td>
-          <td style="${cellStyle}">${stat.sellerName}</td>
-          <td style="${cellStyle}">${stat.sellerId}</td>
-        </tr>
-      `;
-    });
-  } else {
-    buyboxTableHTML += `
-      <tr>
-        <td colspan="3" style="${cellStyle} text-align: center;">No buybox statistics available</td>
-      </tr>
-    `;
-  }
-  buyboxTableHTML += '</table></div>';
 
   // Container'a scroll özelliği ekle
   container.style.maxHeight = '600px';  // veya istediğiniz yükseklik
   container.style.overflowY = 'auto';
   
   // Yeni tabloları mevcut içeriğin sonuna ekle
-  container.innerHTML = container.innerHTML + sellerTableHTML + buyboxTableHTML;
+  container.innerHTML = container.innerHTML + sellerInfoDiv.innerHTML + buyboxStatsDiv.innerHTML;
 }
 
 async function init() {
