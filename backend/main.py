@@ -58,8 +58,10 @@ async def get_product(product_req: ProductRequest):
         seller_info = []
         offers = product.get('offers', [])
         
-        for offer in offers:
-            if offer.get('lastSeen', 0) > 0:
+        # Aktif satıcıları bul
+        for idx in product.get('liveOffersOrder', []):
+            if idx < len(offers):
+                offer = offers[idx]
                 seller_id = offer.get('sellerId', 'Unknown')
                 fulfillment_type = 'FBA' if offer.get('isPrime', False) else 'FBM'
                 total_price = None
@@ -101,13 +103,9 @@ async def get_product(product_req: ProductRequest):
         # TotalPrice'a göre en düşükten en yükseğe sırala
         seller_info.sort(key=lambda x: x['totalPriceFloat'])
 
-        # En aktif 10 satıcıyı al (isteğe bağlı)
-        seller_info = seller_info[:10]
-
         # Gereksiz alanları kaldır
         for seller in seller_info:
             del seller['totalPriceFloat']
-
 
         # BuyBox istatistiklerini al
         buybox_stats = []
@@ -119,13 +117,18 @@ async def get_product(product_req: ProductRequest):
             for seller_id, seller_stats in buybox_stats_data.items():
                 amazon_url = f"https://www.amazon.com/sp?seller={seller_id}"
                 won_rate = seller_stats.get('percentageWon', 0)
-                rounded_won_rate = round(won_rate)  # Tam sayıya yuvarla
+                # 1'den küçük tüm değerler için <1% göster
+                if won_rate < 1:
+                    formatted_rate = "<1"
+                else:
+                    formatted_rate = str(round(won_rate))  # Tam sayıya yuvarla
+                
                 is_fba = seller_stats.get('isFBA', False)
                 
                 buybox_stats.append({
                     'sellerId': seller_id,
                     'amazonUrl': amazon_url,
-                    'wonRate': f"{rounded_won_rate}%",  # Tam sayı olarak göster
+                    'wonRate': f"{formatted_rate}%",  # Formatlı değeri kullan
                     'fulfillmentType': 'FBA' if is_fba else 'FBM',
                     'colorStyle': {
                         "backgroundColor": "#4CAF50" if is_fba else "#FFF59D",
@@ -133,7 +136,7 @@ async def get_product(product_req: ProductRequest):
                     }
                 })
             
-            buybox_stats.sort(key=lambda x: float(x['wonRate'].replace('%', '')), reverse=True)
+            buybox_stats.sort(key=lambda x: float(x['wonRate'].replace('<','0').replace('%', '')), reverse=True)
         
         # Dimensions (mm -> cm dönüşümü)
         dimensions = {
