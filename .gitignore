@@ -48,3 +48,10 @@ backend/keepa_wrapper/tests/weak_key
 # Logs
 *.log
 logs/
+test.py
+# Tüm *_analysis.json dosyalarını hariç tut
+*_analysis.json
+
+# Tüm *_sales_rank_analysis.png dosyalarını hariç tut
+*_sales_rank_analysis.png
+#yeniseyler
