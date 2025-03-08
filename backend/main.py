@@ -41,7 +41,7 @@ async def get_product(product_req: ProductRequest):
         products = api.query(
             asin,
             stats=90,
-            offers=100,  # Daha fazla satıcı bilgisi için 100'e çıkardık
+            offers=100,
             history=True,
             rating=True,
             buybox=True,
@@ -58,26 +58,20 @@ async def get_product(product_req: ProductRequest):
         seller_info = []
         offers = product.get('offers', [])
         
-        # Tüm satıcıları işle
         for offer in offers:
-            # Satıcı aktif mi kontrol et
             if offer.get('lastSeen', 0) > 0:
                 seller_id = offer.get('sellerId', 'Unknown')
-                
-                # FBA/FBM durumunu belirle
                 fulfillment_type = 'FBA' if offer.get('isPrime', False) else 'FBM'
-                
-                # Fiyat bilgisini al
                 total_price = None
+                
                 if 'offerCSV' in offer:
                     csv_data = offer['offerCSV']
                     if csv_data and len(csv_data) >= 3:
-                        price = csv_data[-2]  # Son fiyat
-                        shipping = csv_data[-1]  # Son kargo
+                        price = csv_data[-2]
+                        shipping = csv_data[-1]
                         if price != -1:
                             total_price = (price + (shipping if shipping != -1 else 0)) / 100
                 
-                # Stok bilgisini al
                 stock = 'N/A'
                 if 'stockCSV' in offer:
                     stock_data = offer['stockCSV']
@@ -86,17 +80,13 @@ async def get_product(product_req: ProductRequest):
                         if last_stock != -1:
                             stock = last_stock
                 
-                # Amazon URL'sini oluştur
                 amazon_url = f"https://www.amazon.com/sp?seller={seller_id}"
-                
-                # Renk kodlarını ekle
                 color_style = {
                     "backgroundColor": "#4CAF50" if fulfillment_type == 'FBA' else "#FFF59D",
                     "color": "#FFFFFF" if fulfillment_type == 'FBA' else "#000000"
                 }
                 
-                # Satıcı bilgilerini ekle
-                if total_price is not None:  # Sadece fiyatı olan satıcıları ekle
+                if total_price is not None:
                     seller_info.append({
                         'fulfillmentType': fulfillment_type,
                         'sellerId': seller_id,
@@ -104,16 +94,20 @@ async def get_product(product_req: ProductRequest):
                         'totalPrice': f"{total_price:.2f} €",
                         'stock': stock,
                         'colorStyle': color_style,
-                        'lastSeen': offer.get('lastSeen', 0)
+                        'lastSeen': offer.get('lastSeen', 0),
+                        'totalPriceFloat': total_price  # Sayısal değeri ekliyoruz
                     })
-        
-        # Son görülme tarihine göre sırala ve en son görülenleri al
-        seller_info.sort(key=lambda x: x['lastSeen'], reverse=True)
-        seller_info = seller_info[:10]  # En aktif 10 satıcı
-        
-        # lastSeen alanını kaldır
+
+        # TotalPrice'a göre en düşükten en yükseğe sırala
+        seller_info.sort(key=lambda x: x['totalPriceFloat'])
+
+        # En aktif 10 satıcıyı al (isteğe bağlı)
+        seller_info = seller_info[:10]
+
+        # Gereksiz alanları kaldır
         for seller in seller_info:
-            del seller['lastSeen']
+            del seller['totalPriceFloat']
+
 
         # BuyBox istatistiklerini al
         buybox_stats = []
@@ -125,12 +119,13 @@ async def get_product(product_req: ProductRequest):
             for seller_id, seller_stats in buybox_stats_data.items():
                 amazon_url = f"https://www.amazon.com/sp?seller={seller_id}"
                 won_rate = seller_stats.get('percentageWon', 0)
+                rounded_won_rate = round(won_rate)  # Tam sayıya yuvarla
                 is_fba = seller_stats.get('isFBA', False)
                 
                 buybox_stats.append({
                     'sellerId': seller_id,
                     'amazonUrl': amazon_url,
-                    'wonRate': f"{won_rate:.1f}%",
+                    'wonRate': f"{rounded_won_rate}%",  # Tam sayı olarak göster
                     'fulfillmentType': 'FBA' if is_fba else 'FBM',
                     'colorStyle': {
                         "backgroundColor": "#4CAF50" if is_fba else "#FFF59D",
@@ -138,7 +133,6 @@ async def get_product(product_req: ProductRequest):
                     }
                 })
             
-            # BuyBox kazanma oranına göre sırala
             buybox_stats.sort(key=lambda x: float(x['wonRate'].replace('%', '')), reverse=True)
         
         # Dimensions (mm -> cm dönüşümü)
@@ -167,15 +161,12 @@ async def get_product(product_req: ProductRequest):
         
         box_capacity = calculate_box_capacity(dimensions, dimensions["weight"])
 
-        # Buybox fiyatı ve kargo - yeni format
+        # Buybox fiyatı ve kargo
         current_buybox_price = None
         current_buybox_shipping = 0
         
-        # Debug: Buybox verilerini kontrol edelim
         if "data" in product:
             print("Mevcut data içeriği:", product["data"])
-            
-            # Önce stats'tan deneyelim
             stats = product.get('stats', {})
             if stats:
                 bb_price = stats.get('buyBoxPrice', -1)
@@ -183,14 +174,13 @@ async def get_product(product_req: ProductRequest):
                     current_buybox_price = bb_price / 100
                     print(f"Stats'tan alınan buybox fiyatı: {current_buybox_price}")
 
-            # Eğer stats'tan alamazsak csv'den deneyelim
             if current_buybox_price is None and "csv" in product:
                 csv_data = product["csv"]
                 if csv_data and len(csv_data) > 18:
                     buybox_data = csv_data[18]
                     if isinstance(buybox_data, list) and len(buybox_data) >= 3:
-                        price = buybox_data[-2]  # Son fiyat
-                        shipping = buybox_data[-1]  # Son kargo
+                        price = buybox_data[-2]
+                        shipping = buybox_data[-1]
                         if price != -1:
                             current_buybox_price = price / 100
                             current_buybox_shipping = shipping / 100 if shipping != -1 else 0
@@ -232,7 +222,7 @@ async def get_product(product_req: ProductRequest):
         
         shipping_cost = calculate_shipping_cost(dimensions["weight"])
 
-        # Response'a yeni verileri ekle
+        # Response
         response_data = {
             "success": True,
             "allEans": all_eans,
@@ -247,8 +237,8 @@ async def get_product(product_req: ProductRequest):
             "buyboxShipping": buybox_shipping,
             "totalBuyboxPrice": total_buybox_price,
             "rawBuyboxPrice": current_buybox_price,
-            "sellerInfo": seller_info,         # FBA/FBM Durumu | Seller Adı | Stock
-            "buyboxStats": buybox_stats        # 90 günlük Buybox WonRate | Seller Adı | Seller ID
+            "sellerInfo": seller_info,
+            "buyboxStats": buybox_stats
         }
         
         print(f"Yanıt hazırlandı: {response_data}")
@@ -261,5 +251,3 @@ async def get_product(product_req: ProductRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-    
