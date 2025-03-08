@@ -284,6 +284,26 @@ function displayPrices(container, data) {
     color: #34495e;
   `;
 
+  let fbaSellerCount = 0;
+  let totalFbaStock = 0;
+
+  if (data.sellerInfo && data.sellerInfo.length > 0) {
+    // Sort by totalPriceFloat to ensure price ordering is correct
+    if (data.sellerInfo[0].totalPriceFloat !== undefined) {
+      data.sellerInfo.sort((a, b) => a.totalPriceFloat - b.totalPriceFloat);
+    }
+    
+    const fbaSellers = data.sellerInfo.filter(seller => seller.fulfillmentType === 'FBA');
+    fbaSellerCount = fbaSellers.length;
+    totalFbaStock = fbaSellers.reduce((sum, seller) => {
+      if (seller.stock !== 'N/A') {
+        return sum + seller.stock;
+      } else {
+        return sum;
+      }
+    }, 0);
+  }
+
   // Seller Info Table
   const sellerInfoDiv = document.createElement('div');
   sellerInfoDiv.innerHTML = `
@@ -295,7 +315,7 @@ function displayPrices(container, data) {
       border-top: 1px solid #e0e4e8;
     ">
       <div style="font-weight: 700; font-size: 18px; color: #2c3e50; margin-bottom: 12px; text-align: center;">
-        SELLER INFORMATION
+        SELLER INFORMATION (SORTED BY PRICE)
       </div>
       <div style="overflow-x: auto;">
         <table style="${tableStyle}">
@@ -317,6 +337,10 @@ function displayPrices(container, data) {
             `<tr><td colspan="4" style="${cellStyle} text-align: center;">No seller information available</td></tr>`
           }
         </table>
+      </div>
+      <div style="margin-top: 10px; font-size: 14px; color: #34495e; display: flex; justify-content: space-between;">
+        <span>FBA Seller: ${fbaSellerCount}</span>
+        <span>FBA Stock: ${totalFbaStock.toLocaleString()}</span>
       </div>
     </div>
   `;
