@@ -1,1 +1,0 @@
-"use strict";const sessionCookies={value:"",sessionID:null};export{sessionCookies};

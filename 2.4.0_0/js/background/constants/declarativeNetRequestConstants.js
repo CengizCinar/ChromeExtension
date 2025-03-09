@@ -1,1 +1,0 @@
-"use strict";const declarativeNetRequest=chrome.declarativeNetRequest,ruleActionType=declarativeNetRequest.RuleActionType,headerOperation=declarativeNetRequest.HeaderOperation,allResourceTypes=Object.values(declarativeNetRequest.ResourceType);export{declarativeNetRequest,ruleActionType,headerOperation,allResourceTypes};

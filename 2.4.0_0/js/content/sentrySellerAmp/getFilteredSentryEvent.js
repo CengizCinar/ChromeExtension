@@ -1,1 +1,0 @@
-const getFilteredSentryEvent=e=>{var i=JSON.stringify(e);return i.match(/"filename":"chrome-extension:\/\/kidmffepbniamfbibhfgdakkggchipjl/)||i.match(/"filename":"chrome-extension:\/\/kdjdiajopilediaadgkjijbcnegggpdd/)?e:null};export{getFilteredSentryEvent};

@@ -1,1 +1,0 @@
-const contentScriptMessages={READY:"content_script_ready",LOADING:"content_script_loading",UNLOADED:"content_script_unloaded",CHECK_STATUS:"check_status"};export{contentScriptMessages};
