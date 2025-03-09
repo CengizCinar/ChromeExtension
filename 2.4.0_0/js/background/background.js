@@ -1,1 +1,0 @@
-"use strict";import{initializeSentry}from"./utility/initializeSentry.js";import{sentrySellerAmp}from"../content/sentrySellerAmp/sentrySellerAmp.js";import{launchBackgroundScript}from"./utility/launchBackgroundScript.js";initializeSentry();try{launchBackgroundScript()}catch(t){sentrySellerAmp.captureException(t)}

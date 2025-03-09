@@ -1,1 +1,0 @@
-"use strict";import{findHeader}from"./findHeader.js";const findCookieValue=(e,r)=>{var{header:e,regex:a}=findHeader(e,r),e=e?.value.match(a);let d="";return d=e?`; ${r}=`+e[1]:d};export{findCookieValue};
